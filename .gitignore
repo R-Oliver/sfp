@@ -1,0 +1,33 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# Local traces (use GCS for persistence)
+traces/
+
+# Environment and secrets
+.env
+.env.local
+infra/config.local.sh
+infra/.vm-state
+
+# Editor
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+
+# Misc.
+notes.txt
+drafts.txt
+.claude/

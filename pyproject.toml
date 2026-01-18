@@ -1,0 +1,15 @@
+[project]
+name = "sfp"
+version = "0.1.0"
+description = "TPU kernel development home lab"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "jax[tpu]>=0.8.2",
+    "xprof>=2.20.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "ipython",
+]
