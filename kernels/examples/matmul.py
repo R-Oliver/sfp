@@ -107,3 +107,4 @@ mm = functools.partial(matmul, bm=512, bk=1024, bn=1024)
 analyze_matmul(1024, 1024, 1024, jnp.bfloat16, mm)
 analyze_matmul(4096, 4096, 4096, jnp.bfloat16, mm)
 analyze_matmul(8192, 8192, 8192, jnp.bfloat16, mm)
+
