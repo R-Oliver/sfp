@@ -18,9 +18,9 @@ fi
 echo "uv version: $(uv --version)"
 echo ""
 
-# Sync dependencies
+# Sync dependencies (including TPU extras)
 echo "Syncing dependencies..."
-uv sync
+uv sync --extra tpu
 echo ""
 
 # Verify JAX installation and TPU access

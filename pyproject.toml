@@ -5,11 +5,15 @@ description = "TPU kernel development home lab"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-    "jax[tpu]>=0.8.2",
-    "xprof>=2.20.0",
+    "jax",
+    "ipykernel",
+    "matplotlib",
+    "seaborn",
+    "pandas",
 ]
 
 [project.optional-dependencies]
-dev = [
-    "ipython",
+tpu = [
+    "jax[tpu]>=0.8.2",
+    "xprof>=2.20.0",
 ]
