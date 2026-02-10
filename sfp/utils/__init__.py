@@ -9,5 +9,5 @@ __all__ = [
     "BenchmarkResult",
     "profile",
     "ProfileConfig",
-    "upload_to_gcs"
+    "upload_to_gcs",
 ]
