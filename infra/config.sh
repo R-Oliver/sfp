@@ -38,8 +38,8 @@ get_accelerator_type() {
         v5e-1) echo "v5litepod-1" ;;
         v5e-4) echo "v5litepod-4" ;;
         v5e-8) echo "v5litepod-8" ;;
-	v5e-16) echo "v5litepod-16" ;;
-	v5e-64) echo "v5litepod-64" ;;
+        v5e-16) echo "v5litepod-16" ;;
+        v5e-64) echo "v5litepod-64" ;;
         v6e-1) echo "v6e-1" ;;
         v6e-4) echo "v6e-4" ;;
         v6e-8) echo "v6e-8" ;;
