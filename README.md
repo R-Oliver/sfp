@@ -47,3 +47,25 @@ jax.profiler.stop_trace()
 ```
 
 View with `xprof ./traces --port=8791` or drag into [Perfetto](https://ui.perfetto.dev).
+
+## Benchmarks
+
+XLA baseline matmul with HLO/LLO dumps and profile traces:
+
+```bash
+# Single-host (v5e-4 or v5e-8)
+uv run python scripts/benchmark_xla.py 2 2
+
+# Multi-host (v5e-16, run from local machine)
+gcloud compute tpus tpu-vm ssh $VM_NAME \
+    --zone=$ZONE --worker=all \
+    --command="cd sfp && uv run python scripts/benchmark_xla.py 4 4"
+
+# Custom problem size
+uv run python scripts/benchmark_xla.py 2 2 --m 4096 --k 4096 --n 2048
+```
+
+Set `GCS_BUCKET` on the VM for automatic upload of traces and compiler dumps:
+```bash
+export GCS_BUCKET=gs://your-bucket-name
+```
