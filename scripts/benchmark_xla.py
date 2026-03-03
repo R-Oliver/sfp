@@ -42,6 +42,15 @@ OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 HLO_DIR.mkdir(parents=True, exist_ok=True)
 LLO_DIR.mkdir(parents=True, exist_ok=True)
 
+"""
+NOTE: Keeping this for reference
+This fails with:
+
+> F0303 05:37:58.574267   14193 llo_dumper.cc:471] Check failed: file::GetContents(path, &contents, file::Defaults()) is OK
+> (NOT_FOUND: open failed for /home/reed/g3     /platforms/xla/service/jellyfish/tool_data/vmem_report_header.tmpl: No such file or directory
+
+On the cloud VM. Works on Colab for older versions of jax/jaxlib/libtpu (0.7.2 / 0.0.21)
+
 os.environ["XLA_FLAGS"] = (
     f"--xla_dump_hlo_as_text "
     f"--xla_dump_to={HLO_DIR} "
@@ -58,6 +67,7 @@ os.environ["LIBTPU_INIT_ARGS"] = (
     f"--xla_jf_debug_level=2 "
     f"--xla_tpu_enable_async_collective_fusion_fuse_all_reduce=true "
 )
+"""
 
 import jax
 
@@ -115,10 +125,11 @@ if is_host0:
     try:
         gcs_uri = upload_to_gcs(trace_path, prefix=gcs_prefix)
         print(f"Trace uploaded to {gcs_uri}")
-        gcs_uri = upload_to_gcs(HLO_DIR, prefix=gcs_prefix)
-        print(f"HLO uploaded to {gcs_uri}")
-        gcs_uri = upload_to_gcs(LLO_DIR, prefix=gcs_prefix)
-        print(f"LLO uploaded to {gcs_uri}")
+        # Keeping for posterity
+        # gcs_uri = upload_to_gcs(HLO_DIR, prefix=gcs_prefix)
+        # print(f"HLO uploaded to {gcs_uri}")
+        # gcs_uri = upload_to_gcs(LLO_DIR, prefix=gcs_prefix)
+        # print(f"LLO uploaded to {gcs_uri}")
     except (ValueError, FileNotFoundError) as e:
         print(f"GCS upload skipped: {e}", file=sys.stderr)
         print(f"Set GCS_BUCKET env var to enable upload.")
