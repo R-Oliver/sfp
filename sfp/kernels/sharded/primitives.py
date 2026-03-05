@@ -6,8 +6,6 @@ from jax.experimental.pallas import tpu as pltpu
 import jax.numpy as jnp
 
 
-# ---------- GEMM ----------
-
 def _gemm_kernel(x_ref, y_ref, o_ref, scratch_ref, *, n_steps):
   # Zero scratch buffer
   with jax.named_scope('Zero Scratch Buffer'):
@@ -95,8 +93,6 @@ def _emit_gemm_pipeline(x_ref, w_ref, o_ref, *, bm, bk, bn):
         )(x_ref, w_ref, o_ref)
 
 
-# ---------- All-Gather ----------
-
 def all_gather_kernel_1D(
   input_ref, output_ref,
   local_send_sem, send_sem, recv_sem,
@@ -113,7 +109,6 @@ def all_gather_kernel_1D(
 
   pid = pl.program_id(0)
   shard_height = input_ref.shape[0]
-  shard_width = input_ref.shape[1]
 
   # Get neighbors
   x_len = jax.lax.axis_size('x')
@@ -132,7 +127,6 @@ def all_gather_kernel_1D(
       - Basically, imagine passing what you just received from your left, to the right
   """
   copy_slot_xright = jax.lax.rem(this_x - pid, x_len)
-  copy_slot_xleft = jax.lax.rem(this_x + pid, x_len)
 
   # We're just copying within our HBM to a bigger HBM memory
   with jax.named_scope("Local HBM Copy"):
@@ -230,8 +224,10 @@ def all_gather_kernel_bidi(
     sem=local_send_sem
   )
 
-    local_copy.start()
-    local_copy.wait()
+    with jax.named_scope('Local Copy Start'):
+      local_copy.start()
+    with jax.named_scope('Local Copy Wait'):
+      local_copy.wait()
 
   right_dma = pltpu.make_async_remote_copy(
     # Next kernel iter depends on completion of left/right DMAs
@@ -252,10 +248,14 @@ def all_gather_kernel_bidi(
     device_id_type=pltpu.DeviceIdType.MESH
   )
 
-  right_dma.start()
-  left_dma.start()
-  right_dma.wait()
-  left_dma.wait()
+  with jax.named_scope('Right DMA Start'):
+    right_dma.start()
+  with jax.named_scope('Left DMA Start'):
+    left_dma.start()
+  with jax.named_scope('Right DMA Wait'):
+    right_dma.wait()
+  with jax.named_scope('Left DMA Wait'):
+    left_dma.wait()
 
   @pl.when(pl.program_id(0) == pl.num_programs(0) - 1)
   def _epilogue():
@@ -269,8 +269,10 @@ def all_gather_kernel_bidi(
       device_id_type=pltpu.DeviceIdType.MESH,
     )
 
-    right_dma.start()
-    right_dma.wait()
+    with jax.named_scope('Epilogue DMA Start'):
+      right_dma.start()
+    with jax.named_scope('Epilogue DMA Wait'):
+      right_dma.wait()
 
 def make_ag(x):
   x_len = jax.lax.axis_size('x')
@@ -300,9 +302,6 @@ def make_ag(x):
   )(x)
 
 
-# ---------- All-Reduce ----------
-
-# TODO: Make this kernel work for bigger problem sizes
 def all_reduce_kernel_1D(
     local_hbm_ref, output_ref,
     send_sem, recv_sem, copy_sem,
@@ -313,12 +312,11 @@ def all_reduce_kernel_1D(
     this_y = jax.lax.axis_index('y')
     right_device_y = jax.lax.rem(this_y + 1, y_len)
 
-    with jax.named_scope("Create Local Copy"):
-        local_copy = pltpu.make_async_copy(
-        src_ref=local_hbm_ref,
-        dst_ref=local_scratch,
-        sem=copy_sem
-        )
+    local_copy = pltpu.make_async_copy(
+    src_ref=local_hbm_ref,
+    dst_ref=local_scratch,
+    sem=copy_sem
+    )
 
     with jax.named_scope("Local Copy"):
         local_copy.start()
@@ -345,10 +343,11 @@ def all_reduce_kernel_1D(
             right_dma.wait()
 
         # Add in VMEM, write back to HBM
-        with jax.named_scope("Add Local Data to Remote Data"):
+        with jax.named_scope("Add Remote Data to Local"):
             local_scratch[...] = local_scratch[...] + recv_scratch[...]
 
-        send_ref = recv_scratch
+        with jax.named_scope("Write remote data to send slot"):
+          send_ref = recv_scratch
 
     out_copy = pltpu.make_async_copy(
           src_ref=local_scratch,
@@ -356,8 +355,9 @@ def all_reduce_kernel_1D(
           sem=copy_sem
       )
 
-    with jax.named_scope("Copy Out"):
+    with jax.named_scope("Copy Out Start"):
         out_copy.start()
+    with jax.named_scope("Copy Out Wait"):
         out_copy.wait()
 
 def make_ar_1D(x, bm=1024, bn=1024):
@@ -385,8 +385,6 @@ def make_ar_1D(x, bm=1024, bn=1024):
         out_shape=out_shape,
     )(x)
 
-
-# ---------- Fused AG + GEMM ----------
 
 def fused_ag_gemm_kernel(
     input_ref,          # HBM: inputs shard (m_local, k_local)
@@ -434,12 +432,12 @@ def fused_ag_gemm_kernel(
         def _on_diag_gemm():
             _emit_gemm_pipeline(input_ref, weight_ref, output_ref, bm=BM, bk=BK, bn=BN)
 
-    with jax.named_scope("Wait for comms"):
+    with jax.named_scope("Wait for Weight Exchange"):
         rdma.wait()
 
     # Recompute with correct weights
     # Causes long wait on 2 of our devices (diagonals waiting)
-    with jax.named_scope("Unhappy 2nd GEMM"):
+    with jax.named_scope("Off Diagonal GEMM"):
         @pl.when(this_x != this_y)
         def _():
             _emit_gemm_pipeline(input_ref, recv_weight_ref, output_ref, bm=BM, bk=BK, bn=BN)
