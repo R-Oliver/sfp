@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "jax",
+    "xprof>=2.20.0",
     "ipykernel",
     "matplotlib",
     "seaborn",
@@ -14,10 +15,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-tpu = [
-    "jax[tpu]>=0.8.2",
-    "xprof>=2.20.0",
-]
+tpu = ["jax[tpu]>=0.8.2"]
 
 [build-system]
 requires = ["hatchling"]
