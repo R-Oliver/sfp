@@ -1,6 +1,9 @@
 """
 Naive JAX matmul on a 4x4 mesh (v5e-16, 2 hosts x 8 devices).
-Captures HLO/LLO dumps + a JAX profile trace, uploads to GCS.
+Captures HLO/LLO dumps + a JAX profile trace.
+
+When GCS_BUCKET is set, all hosts write profile data directly to GCS
+so that every device's trace is captured (not just host 0).
 
 Requires GCS_BUCKET env var on the VM (config.local.sh isn't committed):
   export GCS_BUCKET=gs://your-bucket-name
@@ -11,7 +14,6 @@ Run on all workers simultaneously:
       --worker=all \
       --command="cd sfp && uv run python scripts/benchmark_4x4.py"
 """
-import os
 import sys
 from pathlib import Path
 
@@ -33,7 +35,7 @@ jax.distributed.initialize()
 import jax.numpy as jnp
 from jax.sharding import NamedSharding, PartitionSpec as P
 
-from sfp.utils import profile, upload_to_gcs
+from sfp.utils import profile
 
 is_host0 = jax.process_index() == 0
 
@@ -46,12 +48,17 @@ if is_host0:
 mesh = jax.make_mesh((MESH_X, MESH_Y), ("x", "y"))
 
 m, k, n = 16384, 16384, 8192
-k1, k2 = jax.random.split(jax.random.key(0), 2)
-inputs = jax.random.normal(k1, (m, k), dtype=jnp.bfloat16)
-weights = jax.random.normal(k2, (k, n), dtype=jnp.bfloat16)
+inp_sharding = NamedSharding(mesh, P("x", "y"))
+w_sharding = NamedSharding(mesh, P("x", None))
 
-inputs = jax.device_put(inputs, NamedSharding(mesh, P("x", "y")))
-weights = jax.device_put(weights, NamedSharding(mesh, P("x", None)))
+@jax.jit
+def create_data(key):
+    k1, k2 = jax.random.split(key)
+    inputs = jax.random.normal(k1, (m, k), dtype=jnp.bfloat16)
+    weights = jax.random.normal(k2, (k, n), dtype=jnp.bfloat16)
+    return jax.device_put(inputs, inp_sharding), jax.device_put(weights, w_sharding)
+
+inputs, weights = create_data(jax.random.key(0))
 
 
 @jax.jit
@@ -67,22 +74,12 @@ result.block_until_ready()
 if is_host0:
     print("done.")
 
-# Profile
+# Profile — all hosts write directly to GCS when GCS_BUCKET is set
+gcs_prefix = f"v5e_{MESH_X}x{MESH_Y}/xla_baseline"
 if is_host0:
     print("Profiling...", end=" ", flush=True)
-with profile(name="xla_4x4_baseline") as trace_path:
+with profile(name="xla_4x4_baseline", gcs_prefix=gcs_prefix) as trace_loc:
     result = matmul(inputs, weights)
     result.block_until_ready()
 if is_host0:
-    print(f"done. Trace at {trace_path}")
-
-# Upload artifacts to GCS (host 0 only)
-if is_host0:
-    gcs_prefix = f"v5e_{MESH_X}x{MESH_Y}/xla_baseline"
-    try:
-        gcs_uri = upload_to_gcs(trace_path, prefix=gcs_prefix)
-        print(f"Trace uploaded to {gcs_uri}")
-    except (ValueError, FileNotFoundError) as e:
-        print(f"GCS upload skipped: {e}", file=sys.stderr)
-        print(f"Set GCS_BUCKET env var to enable upload.")
-        print(f"Artifacts saved locally at {OUTPUT_DIR}")
+    print(f"done. Trace at {trace_loc}")

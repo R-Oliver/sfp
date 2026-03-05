@@ -54,16 +54,24 @@ def profile(
     config: Optional[ProfileConfig] = None,
     *,
     name: Optional[str] = None,
+    gcs_bucket: Optional[str] = None,
+    gcs_prefix: str = "traces",
 ):
     """
     Context manager for profiling JAX computations.
 
+    When a GCS bucket is available (via argument, env var, or config),
+    writes directly to gs:// so all hosts contribute their profile data.
+    Falls back to local filesystem otherwise.
+
     Args:
         config: ProfileConfig instance (if None, creates default)
         name: Optional name suffix for the trace directory
+        gcs_bucket: GCS bucket name (overrides env/config lookup)
+        gcs_prefix: Prefix path within the bucket
 
     Yields:
-        Path to the trace directory
+        Trace location (gs:// URI or local Path)
 
     Example:
         with profile(name="my_kernel") as trace_dir:
@@ -75,10 +83,16 @@ def profile(
         config = ProfileConfig(name=name)
 
     trace_path = config.trace_path()
-    trace_path.parent.mkdir(parents=True, exist_ok=True)
 
-    with jax.profiler.trace(str(trace_path)):
-        yield trace_path
+    bucket = gcs_bucket or _default_gcs_bucket()
+    if bucket:
+        trace_loc = f"gs://{bucket}/{gcs_prefix}/{trace_path.name}"
+    else:
+        trace_loc = str(trace_path)
+        trace_path.parent.mkdir(parents=True, exist_ok=True)
+
+    with jax.profiler.trace(trace_loc):
+        yield trace_loc
 
 
 def upload_to_gcs(
