@@ -28,7 +28,5 @@ infra/.vm-state
 .DS_Store
 
 # Misc.
-notes.txt
-drafts.txt
+notes/
 .claude/
-experiments.md

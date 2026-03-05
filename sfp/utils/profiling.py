@@ -91,7 +91,12 @@ def profile(
         trace_loc = str(trace_path)
         trace_path.parent.mkdir(parents=True, exist_ok=True)
 
-    with jax.profiler.trace(trace_loc):
+    options = jax.profiler.ProfileOptions()
+    options.advanced_configuration = {
+        "tpu_trace_mode": "TRACE_COMPUTE_AND_SYNC",
+    }
+
+    with jax.profiler.trace(trace_loc, profiler_options=options):
         yield trace_loc
 
 
