@@ -1,6 +1,5 @@
 #!/bin/bash
-# Setup script for TPU VM - run once after cloning the repo
-#
+# 
 # Single-host:
 #   ./scripts/setup-vm.sh
 #

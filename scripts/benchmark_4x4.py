@@ -1,19 +1,3 @@
-"""
-Naive JAX matmul on a 4x4 mesh (v5e-16, 2 hosts x 8 devices).
-Captures HLO/LLO dumps + a JAX profile trace.
-
-When GCS_BUCKET is set, all hosts write profile data directly to GCS
-so that every device's trace is captured (not just host 0).
-
-Requires GCS_BUCKET env var on the VM (config.local.sh isn't committed):
-  export GCS_BUCKET=gs://your-bucket-name
-
-Run on all workers simultaneously:
-  gcloud compute tpus tpu-vm ssh $VM_NAME \
-      --zone=$ZONE \
-      --worker=all \
-      --command="cd sfp && uv run python scripts/benchmark_4x4.py"
-"""
 import sys
 from pathlib import Path
 

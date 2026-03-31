@@ -1,26 +1,3 @@
-"""
-Dumbest possible sharded matmul — just let XLA do its thing.
-Captures HLO/LLO dumps + a JAX profile trace.
-
-When GCS_BUCKET is set, all hosts write profile data directly to GCS
-so that every device's trace is captured (not just host 0).
-
-Requires GCS_BUCKET env var on the VM (config.local.sh isn't committed):
-  export GCS_BUCKET=gs://your-bucket-name
-
-Run (single-host, e.g. v5e-4):
-  uv run python scripts/benchmark_xla.py 2 2
-
-Run (multi-host, e.g. v5e-16):
-  gcloud compute tpus tpu-vm ssh $VM_NAME \
-      --zone=$ZONE --worker=all \
-      --command="cd sfp && uv run python scripts/benchmark_xla.py 4 4"
-
-Run (multi-host, e.g. v5e-64):
-  gcloud compute tpus tpu-vm ssh $VM_NAME \
-      --zone=$ZONE --worker=all \
-      --command="cd sfp && uv run python scripts/benchmark_xla.py 8 8"
-"""
 import argparse
 import sys
 from pathlib import Path
